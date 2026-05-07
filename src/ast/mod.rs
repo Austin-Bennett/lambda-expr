@@ -46,23 +46,23 @@ impl Debug for UnaryOp {
 
 #[derive(Clone, Debug)]
 pub struct BinaryExprNode {
-    lhs: ExprNode,
-    rhs: ExprNode,
+    pub lhs: ExprNode,
+    pub rhs: ExprNode,
 
-    operator: BinaryOp
+    pub operator: BinaryOp
 }
 
 
 #[derive(Clone, Debug)]
 pub struct UnaryExprNode {
-    node: ExprNode,
-    op: UnaryOp,
+    pub node: ExprNode,
+    pub op: UnaryOp,
 }
 
 #[derive(Clone, Debug)]
 pub struct CallExprNode {
-    caller: ExprNode,
-    args: Vec<ExprNode>,
+    pub caller: ExprNode,
+    pub args: Vec<ExprNode>,
 }
 
 #[derive(Clone)]

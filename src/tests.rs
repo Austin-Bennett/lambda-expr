@@ -1,4 +1,6 @@
 use crate::ast::ExprNode;
+use crate::context::bc::PseudoBuilder;
+use crate::context::integer::int_context::IntEvalContextBuilder;
 use crate::lexer::lexer::Tokens;
 
 #[test]
@@ -50,5 +52,22 @@ pub fn test_ast() {
 
 #[test]
 pub fn test_int_context() {
+    let context = IntEvalContextBuilder::default()
+        .build().unwrap();
+}
 
+
+#[test]
+pub fn test_pseudo_compiler() {
+    let mut compiler = PseudoBuilder::new();
+
+    let expr = "3 + a*   (6+2) + abs(-3)".to_owned();
+    let tokens = Tokens::new(expr);
+    let expr = ExprNode::try_from(tokens).unwrap();
+
+    let bc = compiler.compile_expr(&expr);
+
+    for (i, op) in bc.iter().enumerate() {
+        println!("{}: {:?}", i, op);
+    }
 }
