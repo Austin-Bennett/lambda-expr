@@ -77,7 +77,9 @@ impl PseudoBuilder {
     pub fn new() -> Self {
         Self{
             register_alloc: [false; 5],
-            alloc_stack: Vec::new(),
+            //capacity of 10 = nested expression of size 10
+            //and makes exponential capacity allocation even better for even more deeply nested functions
+            alloc_stack: Vec::with_capacity(10),
         }
     }
 
@@ -85,7 +87,8 @@ impl PseudoBuilder {
         self.register_alloc.fill(false);
         self.alloc_stack.clear();
 
-        let mut output = Vec::new();
+        //most likely an expression will require at least 10 nodes
+        let mut output = Vec::with_capacity(10);
         match self.__compile(node, &mut output) {
             Data::Val(v) => {
                 output.push(PseudoOp::MoveV(Register::Ret, v));

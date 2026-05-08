@@ -7,6 +7,7 @@ use anyhow::Error;
 use crate::ast::ExprNode;
 use crate::eval::bc::{PseudoOp, PseudoOpDiscriminants, Value};
 use crate::eval::integer::bc::IOp;
+use crate::eval::integer::DynIntExpression;
 use crate::eval::integer::int_context::{BcIntExpression, IntEvalContext, IntEvalContextState, IntExpr};
 use crate::lexer::lexer::Tokens;
 
@@ -88,10 +89,59 @@ impl IntEvalContext {
     }
 }
 
+impl IntEvalContextState {
+    pub fn load_var_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
+        let this = unsafe{ &mut *this };
+
+        this.vars[slot as usize]
+    }
+
+    pub fn store_arg_callback(this: *mut IntEvalContextState, idx: u32, val: i64) {
+        let this = unsafe{ &mut *this };
+
+        this.vm.args[idx as usize] = val;
+    }
+
+    pub fn set_argc_callback(this: *mut IntEvalContextState, len: u8) {
+        let this = unsafe{ &mut *this };
+
+        this.vm.argc = len;
+    }
+
+    pub fn call_function_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
+        let this = unsafe{ &mut *this };
+
+        this.functions[slot as usize](&this.vm.args[0..this.vm.argc as usize])
+    }
+}
+
+
+pub(crate) type LoadVarCallback = fn(*mut IntEvalContextState, u32) -> i64;
+pub(crate) type StoreArgCallback = fn(*mut IntEvalContextState, u32, i64);
+pub(crate) type SetArgcCallback = fn(*mut IntEvalContextState, u8);
+pub(crate) type CallFnCallback = fn(*mut IntEvalContextState, u32) -> i64;
+pub(crate) type RawJitIntExpr = fn(*mut IntEvalContextState, LoadVarCallback, StoreArgCallback, SetArgcCallback, CallFnCallback) -> i64;
+
 impl<'ctx> BcIntExpression<'ctx> {
     pub fn eval(&self) -> i64 {
         let mut ctx = unsafe{ self.context.as_ref() }.lock().unwrap();
 
-        self.bc.eval(&mut ctx)
+        ctx.eval_bc(&self.bc)
+    }
+
+    pub fn to_dynamic(self) -> DynIntExpression<'ctx> {
+        DynIntExpression{
+            context: self.context,
+            expr: Box::new(self.bc),
+            __phantom_lt: self.__phantom_lt
+        }
+    }
+}
+
+impl<'ctx> DynIntExpression<'ctx> {
+    pub fn eval(&self) -> i64 {
+        let mut ctx = unsafe{ self.context.as_ref() }.lock().unwrap();
+
+        self.expr.eval(&mut ctx)
     }
 }

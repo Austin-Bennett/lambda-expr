@@ -126,14 +126,26 @@ impl IntExpr for Vec<IOp> {
     }
 }
 
+pub struct DynIntExpression<'ctx> {
+    pub(crate) context: NonNull<Mutex<IntEvalContextState>>,
+    pub(crate) expr: Box<dyn IntExpr>,
+    pub(crate) __phantom_lt: PhantomData<&'ctx ()>
+}
+
 
 //can be evaluated directly, also can be used as a intermediate representation of
 //an expression to be later converted into a JIT function
 pub struct BcIntExpression<'ctx> {
-    pub(crate) context:  NonNull<Mutex<IntEvalContextState>>,
+    pub(crate) context: NonNull<Mutex<IntEvalContextState>>,
     pub(crate) bc: Vec<IOp>,
 
     pub(crate) __phantom_lt: PhantomData<&'ctx ()>
 }
 
-//todo: Jit functions
+
+pub struct JitIntExpression<'ctx> {
+    pub(crate) context: NonNull<Mutex<IntEvalContextState>>,
+    //todo: the actual expression
+
+    pub(crate) __phantom_lt: PhantomData<&'ctx ()>
+}
