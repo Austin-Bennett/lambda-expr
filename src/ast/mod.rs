@@ -323,7 +323,7 @@ impl ExprNode {
     }
 }
 
-impl TryFrom<Tokens> for ExprNode {
+impl<'a> TryFrom<Tokens<'a>> for ExprNode {
     type Error = Arc<anyhow::Error>;
 
     fn try_from(value: Tokens) -> Result<ExprNode, Arc<anyhow::Error>> {

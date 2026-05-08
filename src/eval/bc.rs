@@ -1,4 +1,5 @@
 use std::mem;
+use strum::EnumDiscriminants;
 use crate::ast::{BinaryOp, ExprNode, UnaryOp};
 
 #[repr(usize)]
@@ -7,8 +8,6 @@ pub enum Register {
     //Expression registers
     Ret = 0,
     Aux = 1,
-
-    //general purpose registers: VALUE
     R1 = 2,
     R2 = 3,
     R3 = 4,
@@ -23,27 +22,44 @@ pub enum Value {
     Float(f64),
 }
 
+impl Value {
+    pub fn as_i64(&self) -> i64 {
+        match self {
+            Value::Int(i) => { *i }
+            Value::Float(f) => { *f as i64 }
+        }
+    }
+
+    pub fn as_f64(&self) -> f64 {
+        match self {
+            Value::Int(i) => { *i as f64 }
+            Value::Float(f) => { *f }
+        }
+    }
+}
 
 //IR that is converted into the appropriate context
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, EnumDiscriminants)]
+#[repr(u8)]
 pub enum PseudoOp {
-    Load(String), //loads a VALUE into RET
-    PushR(Register), //push a register to the stack
-    PushV(Value), //push a value to the stack
-    Pop(Register), //pops a value off the stack into the register
-    MoveR(Register, Register), //moves the second register into the first
-    MoveV(Register, Value), //move a value into a register
-    MoveArg(u32, Value), //move a value into an argument slot
-    MoveRArg(u32, Register), //move a register into an argument slot
-    SetArgCount(u32),
-    Add(Register, Register), //add the second to the first
-    Sub(Register, Register), //sub
-    Mul(Register, Register), //mul
-    Div(Register, Register), //div
-    Pow(Register, Register), //raises the first to the second
-    Neg(Register),
-    Call(String) //call a routine
+    Load(String)                = 0, //loads a VALUE into RET
+    PushR(Register)             = 1, //push a register to the stack
+    PushV(Value)                = 2, //push a value to the stack
+    Pop(Register)               = 3, //pops a value off the stack into the register
+    MoveR(Register, Register)   = 4, //moves the second register into the first
+    MoveV(Register, Value)      = 5, //move a value into a register
+    MoveArg(u8, Value)          = 6, //move a value into an argument slot
+    MoveRArg(u8, Register)      = 7, //move a register into an argument slot
+    SetArgCount(u8)             = 8, //set the argument count
+    Add(Register, Register)     = 9, //add the second to the first
+    Sub(Register, Register)     = 10, //sub
+    Mul(Register, Register)     = 11, //mul
+    Div(Register, Register)     = 12, //div
+    Pow(Register, Register)     = 13, //raises the first to the second
+    Neg(Register)               = 14, //negate a register
+    Call(String)                = 15, //call a routine
 }
+
 
 
 pub enum Data {
@@ -191,10 +207,10 @@ impl PseudoBuilder {
     fn load_data_argument(&mut self, d: Data, output: &mut Vec<PseudoOp>, i: usize) {
         match d {
             Data::Val(v) => {
-                output.push(PseudoOp::MoveArg(i as u32, v))
+                output.push(PseudoOp::MoveArg(i as u8, v))
             }
             Data::Reg(r) => {
-                output.push(PseudoOp::MoveRArg(i as u32, r))
+                output.push(PseudoOp::MoveRArg(i as u8, r))
             }
         }
     }
@@ -205,7 +221,7 @@ impl PseudoBuilder {
             let edata = self.__compile(a, output);
             self.load_data_argument(edata, output, i);
         }
-        output.push(PseudoOp::SetArgCount(args.len() as u32));
+        output.push(PseudoOp::SetArgCount(args.len() as u8));
         output.push(PseudoOp::Call(func));
     }
 
@@ -261,10 +277,18 @@ impl PseudoBuilder {
                         val
                     }
                     UnaryOp::Neg => {
-                        let r = self.load_data(output, val, Register::Ret);
-                        output.push(PseudoOp::Neg(r));
-
-                        Data::Reg(r)
+                        match val {
+                            Data::Val(v) => {
+                                match v {
+                                    Value::Int(i) => { Data::Val(Value::Int(-i)) }
+                                    Value::Float(f) => { Data::Val(Value::Float(-f)) }
+                                }
+                            }
+                            Data::Reg(r) => {
+                                output.push(PseudoOp::Neg(r));
+                                Data::Reg(r)
+                            }
+                        }
                     }
                 }
             }
