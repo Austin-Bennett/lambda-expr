@@ -90,28 +90,36 @@ impl IntEvalContext {
 }
 
 impl IntEvalContextState {
-    pub extern "C" fn load_var_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
+    pub(crate) extern "C" fn load_var_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
         let this = unsafe{ &mut *this };
 
-        this.vars[slot as usize]
+
+        //SAFETY only accessed by this crate, so we can guarantee idx won't be out of bounds
+        unsafe{ *this.vars.get_unchecked(slot as usize) }
     }
 
-    pub extern "C" fn store_arg_callback(this: *mut IntEvalContextState, idx: u32, val: i64) {
+    pub(crate) extern "C" fn store_arg_callback(this: *mut IntEvalContextState, idx: u32, val: i64) {
         let this = unsafe{ &mut *this };
 
-        this.vm.args[idx as usize] = val;
+
+        //SAFETY only accessed by this crate, so we can guarantee idx won't be out of bounds
+        *unsafe{ this.vm.args.get_unchecked_mut(idx as usize) } = val;
     }
 
-    pub extern "C" fn set_argc_callback(this: *mut IntEvalContextState, len: u8) {
+    pub(crate) extern "C" fn set_argc_callback(this: *mut IntEvalContextState, len: u8) {
         let this = unsafe{ &mut *this };
 
         this.vm.argc = len;
     }
 
-    pub extern "C" fn call_function_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
+    pub(crate) extern "C" fn call_function_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
         let this = unsafe{ &mut *this };
 
-        this.functions[slot as usize](&this.vm.args[0..this.vm.argc as usize])
+
+        //SAFETY only accessed by this crate, so we can guarantee idx won't be out of bounds
+        let func = unsafe{ *this.functions.get_unchecked(slot as usize) };
+
+        func(&this.vm.args[0..this.vm.argc as usize])
     }
 }
 

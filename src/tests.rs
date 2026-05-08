@@ -158,7 +158,7 @@ pub fn test_inkwell_dyn_compilation() {
     let module = icontext.create_module("test_expr");
 
     let jit_engine = module
-        .create_jit_execution_engine(OptimizationLevel::Default)
+        .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
     let none_t = icontext.void_type();
@@ -273,12 +273,25 @@ pub fn test_inkwell_dyn_compilation() {
     let mut state = context.state.lock().unwrap();
     let ptr = state.deref_mut() as *mut IntEvalContextState;
 
-    let res = unsafe{ jit_func.call(ptr,
-                            IntEvalContextState::load_var_callback,
-                            IntEvalContextState::store_arg_callback,
-                            IntEvalContextState::set_argc_callback,
-                            IntEvalContextState::call_function_callback,
-    ) };
+    let mut avg_ns = 0u128;
+    let attempts = 1000;
+    for i in 0..attempts {
+        let res;
+        let t = time! {
+        res = unsafe{ jit_func.call(ptr,
+                    IntEvalContextState::load_var_callback,
+                    IntEvalContextState::store_arg_callback,
+                    IntEvalContextState::set_argc_callback,
+                    IntEvalContextState::call_function_callback,
+            ) };
+        };
+        avg_ns += t.as_nanos();
 
-    println!("result: {}", res);
+        println!("res: {} [time: {:?}]", res, t)
+    }
+    let dur = Duration::from_nanos_u128(avg_ns / attempts);
+    println!("Average time: {:?}", dur)
+
+
+
 }

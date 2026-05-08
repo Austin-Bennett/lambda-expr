@@ -9,3 +9,11 @@ lazy_static = "1.5.0"
 placenew = "3.0.0"
 strum = { version = "0.28.0", features = ["derive"] }
 inkwell = { version = "0.9.0", features = ["llvm22-1"] }
+
+[profile.release]
+opt-level = 3        # Full optimizations
+lto = "fat"          # Link Time Optimization: enable full LTO
+#codegen-units = 1    # Reduce parallel code generation units for better optimization
+panic = "abort"      # Abort on panic, removes unwinding code
+strip = true         # Strip symbols from binary
+debug = false        # Disable debug info
