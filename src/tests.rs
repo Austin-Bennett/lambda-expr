@@ -1,11 +1,13 @@
+use std::ops::DerefMut;
 use std::time::{Duration, Instant};
 use inkwell::{AddressSpace, OptimizationLevel};
 use inkwell::context::Context;
-use inkwell::passes::OptimizationLevel;
+use inkwell::execution_engine::JitFunction;
 use inkwell::types::BasicType;
 use crate::ast::ExprNode;
 use crate::eval::bc::PseudoBuilder;
 use crate::eval::integer::int_context::{BcIntExpression, IntEvalContext, IntEvalContextBuilder, IntExpr};
+use crate::eval::integer::{IntEvalContextState, RawJitIntExpr};
 use crate::lexer::lexer::Tokens;
 
 macro_rules! time {
@@ -148,6 +150,9 @@ pub fn test_inkwell_dyn_compilation() {
         .add_function("abs".to_string(), abs)
         .build();
 
+    let abs_slot = *context.state.lock().unwrap().function_map.get("abs").unwrap();
+    let a_slot = *context.state.lock().unwrap().varmap.get("a").unwrap();
+
     let icontext = Context::create();
 
     let module = icontext.create_module("test_expr");
@@ -210,5 +215,70 @@ pub fn test_inkwell_dyn_compilation() {
     let block = icontext.append_basic_block(func, "entry");
     builder.position_at_end(block);
 
-    let
+    let ctx_0 = func.get_nth_param(0).unwrap().into_pointer_value();
+    let load_var_1 = func.get_nth_param(1).unwrap().into_pointer_value();
+    let store_arg_2 = func.get_nth_param(2).unwrap().into_pointer_value();
+    let set_argc_3 = func.get_nth_param(3).unwrap().into_pointer_value();
+    let call_4 = func.get_nth_param(4).unwrap().into_pointer_value();
+
+
+    builder.build_indirect_call(
+        store_a_cback,
+        store_arg_2,
+        &[
+            ctx_0.into(),
+            u32_t.const_int(0, false).into(),
+            i64_t.const_int((-3i64).cast_unsigned(), true).into()
+        ],
+        "store_arg"
+    ).unwrap();
+
+    builder.build_indirect_call(
+        set_ac_cback,
+        set_argc_3,
+        &[
+            ctx_0.into(),
+            u8_t.const_int(1, false).into()
+        ],
+        "set_argc"
+    ).unwrap();
+
+    let abs = builder.build_indirect_call(
+        call_cback,
+        call_4,
+        &[
+            ctx_0.into(),
+            u32_t.const_int(abs_slot as u64, false).into()
+        ],
+        "abs"
+    ).unwrap().try_as_basic_value().basic().unwrap().into_int_value();
+
+    let a = builder.build_indirect_call(
+        load_v_cback,
+        load_var_1,
+        &[
+            ctx_0.into(),
+            u32_t.const_int(a_slot as u64, false).into()
+        ],
+        "a"
+    ).unwrap().try_as_basic_value().basic().unwrap().into_int_value();
+
+    let res = builder.build_int_add(abs, a, "res").unwrap();
+    builder.build_return(Some(&res)).unwrap();
+
+    let jit_func: JitFunction<RawJitIntExpr> = unsafe{
+        jit_engine.get_function("expr_1").unwrap()
+    };
+
+    let mut state = context.state.lock().unwrap();
+    let ptr = state.deref_mut() as *mut IntEvalContextState;
+
+    let res = unsafe{ jit_func.call(ptr,
+                            IntEvalContextState::load_var_callback,
+                            IntEvalContextState::store_arg_callback,
+                            IntEvalContextState::set_argc_callback,
+                            IntEvalContextState::call_function_callback,
+    ) };
+
+    println!("result: {}", res);
 }

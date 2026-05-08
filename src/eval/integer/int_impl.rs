@@ -90,25 +90,25 @@ impl IntEvalContext {
 }
 
 impl IntEvalContextState {
-    pub fn load_var_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
+    pub extern "C" fn load_var_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
         let this = unsafe{ &mut *this };
 
         this.vars[slot as usize]
     }
 
-    pub fn store_arg_callback(this: *mut IntEvalContextState, idx: u32, val: i64) {
+    pub extern "C" fn store_arg_callback(this: *mut IntEvalContextState, idx: u32, val: i64) {
         let this = unsafe{ &mut *this };
 
         this.vm.args[idx as usize] = val;
     }
 
-    pub fn set_argc_callback(this: *mut IntEvalContextState, len: u8) {
+    pub extern "C" fn set_argc_callback(this: *mut IntEvalContextState, len: u8) {
         let this = unsafe{ &mut *this };
 
         this.vm.argc = len;
     }
 
-    pub fn call_function_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
+    pub extern "C" fn call_function_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
         let this = unsafe{ &mut *this };
 
         this.functions[slot as usize](&this.vm.args[0..this.vm.argc as usize])
@@ -116,11 +116,11 @@ impl IntEvalContextState {
 }
 
 
-pub(crate) type LoadVarCallback = fn(*mut IntEvalContextState, u32) -> i64;
-pub(crate) type StoreArgCallback = fn(*mut IntEvalContextState, u32, i64);
-pub(crate) type SetArgcCallback = fn(*mut IntEvalContextState, u8);
-pub(crate) type CallFnCallback = fn(*mut IntEvalContextState, u32) -> i64;
-pub(crate) type RawJitIntExpr = fn(*mut IntEvalContextState, LoadVarCallback, StoreArgCallback, SetArgcCallback, CallFnCallback) -> i64;
+pub(crate) type LoadVarCallback = extern "C" fn(*mut IntEvalContextState, u32) -> i64;
+pub(crate) type StoreArgCallback = extern "C" fn(*mut IntEvalContextState, u32, i64);
+pub(crate) type SetArgcCallback = extern "C" fn(*mut IntEvalContextState, u8);
+pub(crate) type CallFnCallback = extern "C" fn(*mut IntEvalContextState, u32) -> i64;
+pub(crate) type RawJitIntExpr = unsafe extern "C" fn(*mut IntEvalContextState, LoadVarCallback, StoreArgCallback, SetArgcCallback, CallFnCallback) -> i64;
 
 impl<'ctx> BcIntExpression<'ctx> {
     pub fn eval(&self) -> i64 {
