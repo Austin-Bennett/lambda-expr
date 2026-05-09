@@ -1,6 +1,6 @@
 use crate::eval::bc::Register;
 use crate::eval::integer::bc::IOp;
-use crate::eval::integer::int_context::{BcIntExpression, IntEvalContextState, IntVM};
+use crate::eval::integer::int_context::IntEvalContextState;
 
 
 
@@ -10,6 +10,7 @@ impl IntEvalContextState {
 
 
     fn vm_push(&mut self, v: i64) {
+        debug_assert!(self.vm.rsp < 120);
         self.vm.stack[self.vm.rsp as usize] = v;
         self.vm.rsp += 1;
     }
@@ -21,7 +22,7 @@ impl IntEvalContextState {
         val
     }
 
-    pub(crate) fn eval_bc(&mut self, expr: &Vec<IOp>) -> i64 {
+    pub(crate) fn eval_bc(&mut self, expr: &[IOp]) -> i64 {
 
 
         for op in expr {

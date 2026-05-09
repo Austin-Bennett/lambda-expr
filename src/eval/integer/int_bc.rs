@@ -1,21 +1,20 @@
-use std::io::{BufWriter, Write};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::ptr::NonNull;
 use std::sync::{Arc, Mutex};
 use anyhow::Error;
 use crate::ast::ExprNode;
-use crate::eval::bc::{PseudoOp, PseudoOpDiscriminants, Value};
+use crate::eval::bc::PseudoOp;
 use crate::eval::integer::bc::IOp;
 use crate::eval::integer::DynIntExpression;
-use crate::eval::integer::int_context::{BcIntExpression, IntEvalContext, IntEvalContextState, IntExpr};
+use crate::eval::integer::int_context::{BcIntExpression, IntEvalContext, IntEvalContextState};
 use crate::lexer::lexer::Tokens;
 
 impl IntEvalContext {
 
 
     //turns a string expression into bytecode for quick evaluation and IR storage
-    pub fn create_bytecode(&self, expr: impl AsRef<str>) -> Result<BcIntExpression<'_>, Arc<Error>> {
+    pub fn bytecode_compile(&self, expr: impl AsRef<str>) -> Result<BcIntExpression<'_>, Arc<Error>> {
         let expr = expr.as_ref();
         let expr = Tokens::new(expr);
         let expr = ExprNode::try_from(expr)?;
@@ -89,39 +88,7 @@ impl IntEvalContext {
     }
 }
 
-impl IntEvalContextState {
-    pub(crate) extern "C" fn load_var_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
-        let this = unsafe{ &mut *this };
 
-
-        //SAFETY only accessed by this crate, so we can guarantee idx won't be out of bounds
-        unsafe{ *this.vars.get_unchecked(slot as usize) }
-    }
-
-    pub(crate) extern "C" fn store_arg_callback(this: *mut IntEvalContextState, idx: u32, val: i64) {
-        let this = unsafe{ &mut *this };
-
-
-        //SAFETY only accessed by this crate, so we can guarantee idx won't be out of bounds
-        *unsafe{ this.vm.args.get_unchecked_mut(idx as usize) } = val;
-    }
-
-    pub(crate) extern "C" fn set_argc_callback(this: *mut IntEvalContextState, len: u8) {
-        let this = unsafe{ &mut *this };
-
-        this.vm.argc = len;
-    }
-
-    pub(crate) extern "C" fn call_function_callback(this: *mut IntEvalContextState, slot: u32) -> i64 {
-        let this = unsafe{ &mut *this };
-
-
-        //SAFETY only accessed by this crate, so we can guarantee idx won't be out of bounds
-        let func = unsafe{ *this.functions.get_unchecked(slot as usize) };
-
-        func(&this.vm.args[0..this.vm.argc as usize])
-    }
-}
 
 
 pub(crate) type LoadVarCallback = extern "C" fn(*mut IntEvalContextState, u32) -> i64;
@@ -141,7 +108,6 @@ impl<'ctx> BcIntExpression<'ctx> {
         DynIntExpression{
             context: self.context,
             expr: Box::new(self.bc),
-            __phantom_lt: self.__phantom_lt
         }
     }
 }

@@ -2,6 +2,7 @@ use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, Debug)]
 pub enum BindingPower {
+    #[allow(dead_code)]
     Unary,
     Binary(u8, u8),
     BinaryOrUnary(u8, u8),
@@ -38,6 +39,7 @@ impl BindingPower {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_binary(&self) -> bool {
         match self {
             BindingPower::Unary => false,

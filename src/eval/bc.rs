@@ -4,6 +4,7 @@ use crate::ast::{BinaryOp, ExprNode, UnaryOp};
 
 #[repr(usize)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[allow(dead_code)] // R1-R5 are constructed via unsafe transmute in get_greg
 pub enum Register {
     //Expression registers
     Ret = 0,
@@ -30,6 +31,7 @@ impl Value {
         }
     }
 
+    #[allow(dead_code)]
     pub fn as_f64(&self) -> f64 {
         match self {
             Value::Int(i) => { *i as f64 }
@@ -150,28 +152,6 @@ impl PseudoBuilder {
             }
         }
     }
-
-    fn load(&mut self, output: &mut Vec<PseudoOp>, into: Register) {
-        let Some(a) = self.alloc_stack.pop() else {
-            panic!("Alloc stack is empty!");
-        };
-
-        match a {
-            -1 => {
-                output.push(PseudoOp::Pop(into));
-            }
-            0..5 => {
-                self.register_alloc[a as usize] = false;
-                let greg = Self::get_greg(a as usize);
-                if greg != into {
-                    output.push(PseudoOp::MoveR(into, greg));
-                }
-            }
-
-            _ => unreachable!()
-        }
-    }
-
 
     //returns the register a value is located at, or loads it into the specified register
     fn maybe_load(&mut self, output: &mut Vec<PseudoOp>, into: Register) -> Register {
