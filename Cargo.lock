@@ -73,7 +73,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lambda"
+name = "lambda-expr"
 version = "0.1.0-beta"
 dependencies = [
  "anyhow",

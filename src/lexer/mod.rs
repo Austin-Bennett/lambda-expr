@@ -5,6 +5,10 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use crate::operator::Operator;
 
+/// A single lexical token produced by the tokenizer.
+///
+/// Covers every syntactic element an expression can contain: identifiers,
+/// numeric literals, operators, grouping punctuation, and parse errors.
 #[derive(Clone)]
 pub enum Token {
     Ident(String),
@@ -34,6 +38,11 @@ impl Debug for Token {
 }
 
 
+/// Parses a single token from the start of a string slice.
 pub trait Parser {
+    /// Attempts to consume a token from the beginning of `input`.
+    ///
+    /// Returns `Some((token, bytes_consumed))` on success, or `None` if this
+    /// parser does not match the input at the current position.
     fn parse(&self, input: &str) -> Option<(Token, usize)>;
 }

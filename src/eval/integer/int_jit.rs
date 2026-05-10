@@ -47,6 +47,11 @@ impl IntEvalContext {
 
 
 
+    /// Parses, compiles, and JIT-compiles an expression string to native code via LLVM.
+    ///
+    /// Each call produces a new uniquely named LLVM function added to the JIT engine.
+    /// Returns a [`JitIntExpression`] whose `eval` invokes the native function directly,
+    /// routing variable loads and function calls back to the context through C callbacks.
     pub fn jit_compile(&'_ self, expr: impl AsRef<str>) -> Result<JitIntExpression<'_>, Arc<Error>> {
         let expr = expr.as_ref();
         let expr = Tokens::new(expr);
@@ -270,11 +275,16 @@ impl IntEvalContext {
 
 
 impl<'ctx> JitIntExpression<'ctx> {
+    /// Evaluates the JIT-compiled expression by invoking the native function.
+    ///
+    /// Locks the context state to pass a stable pointer to the runtime callbacks;
+    /// the lock is released immediately after the native call returns.
     pub fn eval(&self) -> i64 {
         let mut ctx = unsafe{ self.context.as_ref() }.lock().unwrap();
         self.jit.eval(ctx.deref_mut())
     }
 
+    /// Converts this expression into a type-erased [`DynIntExpression`].
     pub fn to_dynamic(self) -> DynIntExpression<'ctx> where Self: 'ctx {
         DynIntExpression{
             context: self.context,

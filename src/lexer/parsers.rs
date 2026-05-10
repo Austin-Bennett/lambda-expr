@@ -5,6 +5,8 @@ use lazy_static::lazy_static;
 use crate::lexer::{Parser, Token};
 use crate::operator::Operator;
 
+/// Parses identifiers: sequences beginning with a letter or `_` followed
+/// by any combination of alphanumeric characters and underscores.
 pub struct IdentifierParser;
 
 impl IdentifierParser {
@@ -44,6 +46,9 @@ impl Parser for IdentifierParser {
 //supports decimal, duotrigesimal (0t) hex (0x) octal (0o) binary (0b)
 //todo: support any other number system by using the prefix 0nNN, binary is 0n02, ternary is 0n03,
 //todo: duotrigesimal is 0n32, NN must be between 2 and 32
+/// Parses integer literals in decimal, hex (`0x`), octal (`0o`), binary (`0b`),
+/// and base-32 (`0t`) notation. A leading `.` causes the parser to defer to
+/// [`FloatParser`] instead.
 pub struct IntegerParser;
 
 impl IntegerParser {
@@ -102,6 +107,10 @@ impl Parser for IntegerParser {
     }
 }
 
+/// Parses floating-point literals, including scientific notation (`1.5e2`).
+///
+/// The exponent itself is parsed recursively, so chained exponents like
+/// `3.33e2.4` are evaluated as `3.33 × 10^2.4`.
 pub struct FloatParser;
 
 impl Parser for FloatParser {
@@ -178,6 +187,8 @@ lazy_static!{
     };
 }
 
+/// Parses operator tokens by matching against the registered operator list,
+/// sorted longest-first to avoid ambiguity (e.g. `**` before `*`).
 pub struct OperatorParser;
 
 impl Parser for OperatorParser {
@@ -192,6 +203,9 @@ impl Parser for OperatorParser {
     }
 }
 
+/// Matches exactly the single character `C` and yields the associated token.
+///
+/// Used for punctuation like `(`, `)`, and `,` where no ambiguity exists.
 pub struct SingleCharParser<const C: char> { tk: Token }
 
 

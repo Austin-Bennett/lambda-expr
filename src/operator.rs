@@ -1,6 +1,10 @@
 use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, Debug)]
+/// Describes how tightly an operator binds to its operands.
+///
+/// Left and right binding powers drive the Pratt parser's precedence climbing:
+/// a higher right-hand power makes the operator right-associative.
 pub enum BindingPower {
     #[allow(dead_code)]
     Unary,
@@ -56,6 +60,10 @@ impl BindingPower {
 }
 
 #[derive(Copy, Clone)]
+/// A static operator definition pairing a token string with its binding power.
+///
+/// Pre-defined constants (`ADD`, `SUB`, `MUL`, `DIV`, `POW`) cover all
+/// operators recognised by the expression language.
 pub struct Operator {
     pub token: &'static str,
     pub bp: BindingPower,

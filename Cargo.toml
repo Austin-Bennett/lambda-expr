@@ -1,7 +1,10 @@
 [package]
-name = "lambda"
+name = "lambda-expr"
 version = "0.1.0-beta"
 edition = "2024"
+description = "Crate for evaluating string expressions in hot loops"
+license = "MIT"
+repository = "https://github.com/Austin-Bennett/lambda-expr.git"
 
 [dependencies]
 anyhow = "1.0.102"

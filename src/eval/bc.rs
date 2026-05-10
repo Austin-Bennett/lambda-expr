@@ -2,6 +2,11 @@ use std::mem;
 use strum::EnumDiscriminants;
 use crate::ast::{BinaryOp, ExprNode, UnaryOp};
 
+/// The virtual registers available to the pseudo-bytecode VM.
+///
+/// `Ret` holds expression results; `Aux` is a scratch register for binary
+/// operands; `R1`–`R5` are general-purpose spill registers used during
+/// expression compilation when both sides of an operation must be live.
 #[repr(usize)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)] // R1-R5 are constructed via unsafe transmute in get_greg
@@ -16,6 +21,10 @@ pub enum Register {
     R5 = 6,
 }
 
+/// A compile-time constant value, either an integer or a float.
+///
+/// Used inside pseudo-bytecode instructions to embed literal operands without
+/// needing a separate constant pool.
 #[derive(Clone)]
 #[derive(Debug)]
 pub enum Value {
@@ -40,7 +49,10 @@ impl Value {
     }
 }
 
-//IR that is converted into the appropriate context
+/// Context-independent IR instruction set produced by [`PseudoBuilder`].
+///
+/// Variable and function references are kept as strings at this stage so the
+/// same IR can be lowered into any typed backend (e.g. integer VM or JIT).
 #[derive(Clone, Debug, EnumDiscriminants)]
 #[repr(u8)]
 pub enum PseudoOp {
@@ -69,6 +81,10 @@ pub enum Data {
     Reg(Register),
 }
 
+/// Compiles an [`ExprNode`] AST into a flat sequence of [`PseudoOp`] instructions.
+///
+/// Uses a simple register allocator backed by a small fixed register file; operands
+/// that overflow the registers are spilled to an implicit stack via `Push`/`Pop`.
 pub struct PseudoBuilder {
     //tracks which general registers are currently allocated for some use
     register_alloc: [bool; 5],
@@ -76,6 +92,7 @@ pub struct PseudoBuilder {
 }
 
 impl PseudoBuilder {
+    /// Creates a new builder with all registers free and an empty allocation stack.
     pub fn new() -> Self {
         Self{
             register_alloc: [false; 5],
@@ -85,6 +102,10 @@ impl PseudoBuilder {
         }
     }
 
+    /// Compiles an expression tree into a [`PseudoOp`] instruction sequence.
+    ///
+    /// Resets register state on each call, so the builder is safe to reuse
+    /// across multiple independent compilations.
     pub fn compile_expr(&mut self, node: &ExprNode) -> Vec<PseudoOp> {
         self.register_alloc.fill(false);
         self.alloc_stack.clear();

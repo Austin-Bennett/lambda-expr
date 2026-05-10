@@ -17,6 +17,11 @@ use crate::eval::integer::bc::IOp;
 use crate::eval::integer::RawJitIntExpr;
 
 
+/// The central evaluation context for integer expressions.
+///
+/// Owns the variable/function tables, the bytecode compiler, and the LLVM JIT
+/// engine. Thread-safe: multiple compiled expressions may be held and evaluated
+/// concurrently, each locking the shared state only during execution.
 pub struct IntEvalContext {
     pub(crate) state: Pin<Box<Mutex<IntEvalContextState>>>,
     pub(crate) jit_comp: IntJit,
@@ -26,6 +31,10 @@ pub struct IntEvalContext {
 
 
 
+/// Builder for [`IntEvalContext`].
+///
+/// Register variables and functions before calling [`build`](Self::build) to
+/// produce a fully initialised context ready for expression compilation.
 pub struct IntEvalContextBuilder {
     varmap: Option<HashMap<String, u32>>,
     vars: Option<Vec<i64>>,
@@ -34,6 +43,7 @@ pub struct IntEvalContextBuilder {
 }
 
 impl IntEvalContextBuilder {
+    /// Creates a new builder with empty variable and function tables.
     pub fn new() -> Self {
         Self{
             varmap: Some(HashMap::new()),
@@ -43,6 +53,7 @@ impl IntEvalContextBuilder {
         }
     }
 
+    /// Registers a named variable with an initial integer value.
     pub fn add_variable(&mut self, name: String, val: i64) -> &mut Self {
         let vars = self.vars.get_or_insert_with(Vec::new);
         let varmap = self.varmap.get_or_insert_with(HashMap::new);
@@ -56,6 +67,7 @@ impl IntEvalContextBuilder {
         self
     }
 
+    /// Registers a named function callable from expressions.
     pub fn add_function(&mut self, name: String, function: fn(&[i64]) -> i64) -> &mut Self {
         let functions = self.functions.get_or_insert_with(Vec::new);
         let function_map = self.function_map.get_or_insert_with(HashMap::new);
@@ -73,6 +85,10 @@ impl IntEvalContextBuilder {
         base.pow(exp.max(0) as u32)
     }
 
+    /// Consumes the builder and produces a ready-to-use [`IntEvalContext`].
+    ///
+    /// Initialises the LLVM JIT engine (including the `ipow` global mapping)
+    /// and pins the shared state so compiled expressions can safely hold pointers to it.
     pub fn build(&mut self) -> IntEvalContext {
         //prepare the jit context
         let context = Box::new(inkwell::context::Context::create());
@@ -210,6 +226,10 @@ pub(crate) struct IntEvalContextState {
 
 
 
+/// The register-based virtual machine used to execute bytecode expressions.
+///
+/// Holds a fixed-size register file, an argument staging area for function
+/// calls, and a 120-slot stack for spilling values during complex expressions.
 pub struct IntVM {
 
 
@@ -221,6 +241,11 @@ pub struct IntVM {
     pub(crate) rsp: u32,
 }
 
+/// Self-referential LLVM JIT context, managed via `ouroboros`.
+///
+/// Owns the inkwell `Context`, `ExecutionEngine`, and `Builder`, together with
+/// pre-computed LLVM types and function-type signatures for the runtime
+/// callbacks used by JIT-compiled expressions.
 #[ouroboros::self_referencing]
 pub struct IntJit {
     pub(crate) context: Box<inkwell::context::Context>,
@@ -291,14 +316,21 @@ pub(crate) trait IntExpr {
 
 
 
+/// A type-erased integer expression whose backend is determined at runtime.
+///
+/// Wraps any [`IntExpr`] implementor (bytecode or JIT) so both can be stored
+/// and passed uniformly without exposing the concrete type to callers.
 pub struct DynIntExpression<'ctx> {
     pub(crate) context: NonNull<Mutex<IntEvalContextState>>,
     pub(crate) expr: Box<dyn IntExpr + 'ctx>
 }
 
 
-//can be evaluated directly, also can be used as a intermediate representation of
-//an expression to be later converted into a JIT function
+/// A compiled bytecode expression bound to an [`IntEvalContext`].
+///
+/// Can be evaluated directly via the interpreter or converted into a
+/// [`DynIntExpression`]. The `'ctx` lifetime ensures the expression cannot
+/// outlive the context whose variable and function tables it references.
 pub struct BcIntExpression<'ctx> {
     //SAFETY: the pointer is pointing to a pinned memory address
     //and the expression is bounded by the 'ctx lifetime,
@@ -315,6 +347,11 @@ impl IntExpr for Vec<IOp> {
     }
 }
 
+/// A JIT-compiled integer expression bound to an [`IntEvalContext`].
+///
+/// Holds a native function pointer produced by LLVM. Evaluation invokes the
+/// compiled code directly, passing runtime callbacks for variable loads and
+/// function calls via the context's shared state.
 pub struct JitIntExpression<'ctx> {
     //SAFETY: the pointer is pointing to a pinned memory address
     //and the expression is bounded by the 'ctx lifetime,
@@ -340,8 +377,10 @@ impl<'ctx> IntExpr for JitFunction<'ctx, RawJitIntExpr> {
 
 impl IntEvalContext {
 
-    /// adds a new variable for expressions to use,
-    /// previous expressions cannot use the new variable (duh)
+    /// Registers a new variable in the context at runtime.
+    ///
+    /// Expressions compiled before this call cannot reference the new variable;
+    /// only expressions compiled afterwards will have access to it.
     pub fn add_variable(&self, name: String, default_val: i64) {
         let mut lock = self.state.lock().unwrap();
 
@@ -352,8 +391,10 @@ impl IntEvalContext {
     }
 
 
-    /// adds a new function for expressions to use,
-    /// previous expressions cannot use the new function (duh)
+    /// Registers a new callable function in the context at runtime.
+    ///
+    /// Only expressions compiled after this call can invoke the function;
+    /// previously compiled expressions retain their original function table.
     pub fn add_function(&self, name: String, function: fn(&[i64]) -> i64) {
         let mut lock = self.state.lock().unwrap();
 
@@ -364,7 +405,10 @@ impl IntEvalContext {
     }
 
 
-    /// panics if the variable does not exist
+    /// Updates the value of an existing variable.
+    ///
+    /// All compiled expressions that reference this variable will see the new
+    /// value on their next evaluation. Panics if the variable does not exist.
     pub fn set_variable(&self, name: impl AsRef<str>, val: i64) {
         let mut lock = self.state.lock().unwrap();
 

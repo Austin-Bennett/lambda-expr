@@ -6,6 +6,7 @@ use crate::lexer::lexer::Tokens;
 use crate::lexer::Token;
 use crate::operator::BindingPower;
 
+/// The set of binary arithmetic operators supported in expressions.
 #[derive(Clone)]
 pub enum BinaryOp {
     ADD,
@@ -28,6 +29,7 @@ impl Debug for BinaryOp {
 }
 
 
+/// The set of unary operators supported in expressions.
 #[derive(Clone)]
 pub enum UnaryOp {
     Def, //+
@@ -43,6 +45,7 @@ impl Debug for UnaryOp {
     }
 }
 
+/// An AST node representing a binary operation between two sub-expressions.
 #[derive(Clone, Debug)]
 pub struct BinaryExprNode {
     pub lhs: ExprNode,
@@ -52,18 +55,24 @@ pub struct BinaryExprNode {
 }
 
 
+/// An AST node representing a unary operation applied to a sub-expression.
 #[derive(Clone, Debug)]
 pub struct UnaryExprNode {
     pub node: ExprNode,
     pub op: UnaryOp,
 }
 
+/// An AST node representing a function call with a callee expression and argument list.
 #[derive(Clone, Debug)]
 pub struct CallExprNode {
     pub caller: ExprNode,
     pub args: Vec<ExprNode>,
 }
 
+/// The top-level AST node for an expression.
+///
+/// Built by the Pratt parser from a [`Tokens`] stream. Each variant owns its
+/// children, forming a recursive tree that backends compile or evaluate.
 #[derive(Clone)]
 pub enum ExprNode {
     Ident(String),

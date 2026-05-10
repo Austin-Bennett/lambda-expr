@@ -13,7 +13,11 @@ use crate::lexer::lexer::Tokens;
 impl IntEvalContext {
 
 
-    //turns a string expression into bytecode for quick evaluation and IR storage
+    /// Parses and compiles an expression string into interpreted bytecode.
+    ///
+    /// Returns a [`BcIntExpression`] that can be evaluated repeatedly or converted
+    /// into a [`DynIntExpression`]. Returns an error if the expression contains
+    /// unknown identifiers or is syntactically invalid.
     pub fn bytecode_compile(&self, expr: impl AsRef<str>) -> Result<BcIntExpression<'_>, Arc<Error>> {
         let expr = expr.as_ref();
         let expr = Tokens::new(expr);
@@ -98,12 +102,18 @@ pub(crate) type CallFnCallback = extern "C" fn(*mut IntEvalContextState, u32) ->
 pub(crate) type RawJitIntExpr = unsafe extern "C" fn(*mut IntEvalContextState, LoadVarCallback, StoreArgCallback, SetArgcCallback, CallFnCallback) -> i64;
 
 impl<'ctx> BcIntExpression<'ctx> {
+    /// Evaluates the expression using the bytecode interpreter.
+    ///
+    /// Locks the shared context state for the duration of execution, so
+    /// concurrent evaluations of different expressions on the same context
+    /// are serialised at this point.
     pub fn eval(&self) -> i64 {
         let mut ctx = unsafe{ self.context.as_ref() }.lock().unwrap();
 
         ctx.eval_bc(&self.bc)
     }
 
+    /// Converts this expression into a type-erased [`DynIntExpression`].
     pub fn to_dynamic(self) -> DynIntExpression<'ctx> {
         DynIntExpression{
             context: self.context,
@@ -113,6 +123,7 @@ impl<'ctx> BcIntExpression<'ctx> {
 }
 
 impl<'ctx> DynIntExpression<'ctx> {
+    /// Evaluates the expression through its boxed backend (bytecode or JIT).
     pub fn eval(&self) -> i64 {
         let mut ctx = unsafe{ self.context.as_ref() }.lock().unwrap();
 

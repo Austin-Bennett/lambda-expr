@@ -2,6 +2,10 @@ use crate::lexer::{Parser, Token};
 use crate::lexer::parsers::{FloatParser, IdentifierParser, IntegerParser, OperatorParser, SingleCharParser};
 
 
+/// A lazy iterator that tokenizes an expression string on demand.
+///
+/// Skips unrecognized characters and tries each registered [`Parser`] in
+/// priority order, yielding one [`Token`] per call to [`Iterator::next`].
 pub struct Tokens<'str> {
     original: &'str str,
     pos: usize,
@@ -20,6 +24,7 @@ const PARSERS: &[&dyn Parser] = &[
 impl<'str> Tokens<'str> {
     
     
+    /// Creates a new token iterator over the given expression string.
     pub fn new(expr: &'str str) -> Self {
         Self{
             original: expr,
