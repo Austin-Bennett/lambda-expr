@@ -22,7 +22,7 @@ impl IntEvalContext {
         let expr = expr.as_ref();
         let expr = Tokens::new(expr);
         let expr = ExprNode::try_from(expr)?;
-        let bc = self.bc_builder.lock().unwrap().compile_expr(&expr);
+        let bc = self.bc_builder.lock().unwrap().compile_expr(&expr).map_err(|e| Arc::new(e))?;
 
         let mut res = Vec::new();
 

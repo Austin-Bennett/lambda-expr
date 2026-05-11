@@ -1,4 +1,5 @@
 use std::mem;
+use anyhow::Error;
 use strum::EnumDiscriminants;
 use crate::ast::{BinaryOp, ExprNode, UnaryOp};
 
@@ -106,13 +107,13 @@ impl PseudoBuilder {
     ///
     /// Resets register state on each call, so the builder is safe to reuse
     /// across multiple independent compilations.
-    pub fn compile_expr(&mut self, node: &ExprNode) -> Vec<PseudoOp> {
+    pub fn compile_expr(&mut self, node: &ExprNode) -> Result<Vec<PseudoOp>, Error> {
         self.register_alloc.fill(false);
         self.alloc_stack.clear();
 
         //most likely an expression will require at least 10 nodes
         let mut output = Vec::with_capacity(10);
-        match self.__compile(node, &mut output) {
+        match self.__compile(node, &mut output)? {
             Data::Val(v) => {
                 output.push(PseudoOp::MoveV(Register::Ret, v));
             }
@@ -123,7 +124,7 @@ impl PseudoBuilder {
             }
         }
 
-        output
+        Ok(output)
     }
 
     //gets the general register 0-indexed from R1 to R5
@@ -219,35 +220,37 @@ impl PseudoBuilder {
         }
     }
 
-    fn build_call(&mut self, func: String, args: &Vec<ExprNode>, output: &mut Vec<PseudoOp>) {
+    fn build_call(&mut self, func: String, args: &Vec<ExprNode>, output: &mut Vec<PseudoOp>) -> Result<(), Error> {
 
         for (i, a) in args.iter().enumerate() {
-            let edata = self.__compile(a, output);
+            let edata = self.__compile(a, output)?;
             self.load_data_argument(edata, output, i);
         }
         output.push(PseudoOp::SetArgCount(args.len() as u8));
         output.push(PseudoOp::Call(func));
+
+        Ok(())
     }
 
-    fn __compile(&mut self, node: &ExprNode, output: &mut Vec<PseudoOp>) -> Data {
+    fn __compile(&mut self, node: &ExprNode, output: &mut Vec<PseudoOp>) -> Result<Data, Error> {
         match node {
             ExprNode::Ident(ident) => {
                 output.push(PseudoOp::Load(ident.clone()));
 
-                Data::Reg(Register::Ret)
+                Ok(Data::Reg(Register::Ret))
             }
             ExprNode::Integer(i) => {
-                Data::Val(Value::Int(*i))
+                Ok(Data::Val(Value::Int(*i)))
             }
             ExprNode::Float(f) => {
-                Data::Val(Value::Float(*f))
+                Ok(Data::Val(Value::Float(*f)))
             }
             ExprNode::Binary(bop) => {
 
-                let rhs = self.__compile(&bop.rhs, output);
+                let rhs = self.__compile(&bop.rhs, output)?;
                 self.save(rhs, output);
 
-                let lhs = self.__compile(&bop.lhs, output);
+                let lhs = self.__compile(&bop.lhs, output)?;
 
                 //loads only if the value isnt already in a register
                 let lhs = self.load_data(output, lhs, Register::Ret);
@@ -271,26 +274,26 @@ impl PseudoBuilder {
                     }
                 }
 
-                Data::Reg(lhs)
+                Ok(Data::Reg(lhs))
             }
             ExprNode::Unary(uop) => {
-                let val = self.__compile(&uop.node, output);
+                let val = self.__compile(&uop.node, output)?;
 
                 match uop.op {
                     UnaryOp::Def => {
-                        val
+                        Ok(val)
                     }
                     UnaryOp::Neg => {
                         match val {
                             Data::Val(v) => {
                                 match v {
-                                    Value::Int(i) => { Data::Val(Value::Int(-i)) }
-                                    Value::Float(f) => { Data::Val(Value::Float(-f)) }
+                                    Value::Int(i) => { Ok(Data::Val(Value::Int(-i))) }
+                                    Value::Float(f) => { Ok(Data::Val(Value::Float(-f))) }
                                 }
                             }
                             Data::Reg(r) => {
                                 output.push(PseudoOp::Neg(r));
-                                Data::Reg(r)
+                                Ok(Data::Reg(r))
                             }
                         }
                     }
@@ -300,12 +303,12 @@ impl PseudoBuilder {
                 match &call.caller {
                     ExprNode::Ident(i) => {
                         //build a call
-                        self.build_call(i.clone(), &call.args, output);
+                        self.build_call(i.clone(), &call.args, output)?;
                         //a call always returns to RET
-                        Data::Reg(Register::Ret)
+                        Ok(Data::Reg(Register::Ret))
                     }
-                    _ => {
-                        unreachable!("caller: {:?}", call.caller);
+                    caller => {
+                        Err(Error::msg(format!("Cannot call non-function: {:?}", caller)))
                     }
                 }
             }
