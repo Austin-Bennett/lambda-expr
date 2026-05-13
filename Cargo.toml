@@ -1,6 +1,6 @@
 [package]
 name = "lambda-expr"
-version = "0.1.0-beta"
+version = "0.1.1-beta"
 edition = "2024"
 description = "Crate for evaluating string expressions in hot loops"
 license = "MIT"

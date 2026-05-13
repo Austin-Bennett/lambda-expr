@@ -65,6 +65,7 @@ println!("{}", bc_expr.eval());
 - Added `IntEvalContext` *Context for Integer expressions*
 - Added `JitIntExpression` *Jit-compiled expression*
 - Added `BcIntExpression` *Bytecode interpreted expression*
+- Minor fix: republish to fix documentation
 
 # Dependencies
 ```toml
