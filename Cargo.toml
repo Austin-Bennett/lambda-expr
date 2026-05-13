@@ -8,13 +8,16 @@ repository = "https://github.com/Austin-Bennett/lambda-expr.git"
 exclude = ["src/test", "src/tests.rs"]
 readme = "README.md"
 
+[features]
+jit-compile = ["dep:inkwell", "dep:ouroboros"]
+
 [dependencies]
 anyhow = "1.0.102"
 lazy_static = "1.5.0"
 placenew = "3.0.0"
 strum = { version = "0.28.0", features = ["derive"] }
-inkwell = { version = "0.9.0", features = ["llvm22-1"] }
-ouroboros = "0.18.5"
+inkwell = { version = "0.9.0", features = ["llvm22-1"], optional = true }
+ouroboros = { version = "0.18.5", optional = true }
 
 [profile.release]
 opt-level = 3        # Full optimizations

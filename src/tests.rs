@@ -156,6 +156,7 @@ pub fn test_bc_evaluation() {
 
 }
 
+#[cfg(feature = "jit-compile")]
 #[test]
 pub fn test_jit() {
     let context = IntEvalContextBuilder::new()
@@ -203,6 +204,7 @@ pub fn test_jit() {
     println!("Eval time: {:?}", t);
 }
 
+#[cfg(feature = "jit-compile")]
 #[test]
 pub fn compare_jit_bc() {
     println!("--BYTECODE EVALUATION--");

@@ -95,10 +95,15 @@ impl IntEvalContext {
 
 
 
+#[cfg(feature = "jit-compile")]
 pub(crate) type LoadVarCallback = extern "C" fn(*mut IntEvalContextState, u32) -> i64;
+#[cfg(feature = "jit-compile")]
 pub(crate) type StoreArgCallback = extern "C" fn(*mut IntEvalContextState, u32, i64);
+#[cfg(feature = "jit-compile")]
 pub(crate) type SetArgcCallback = extern "C" fn(*mut IntEvalContextState, u8);
+#[cfg(feature = "jit-compile")]
 pub(crate) type CallFnCallback = extern "C" fn(*mut IntEvalContextState, u32) -> i64;
+#[cfg(feature = "jit-compile")]
 pub(crate) type RawJitIntExpr = unsafe extern "C" fn(*mut IntEvalContextState, LoadVarCallback, StoreArgCallback, SetArgcCallback, CallFnCallback) -> i64;
 
 impl<'ctx> BcIntExpression<'ctx> {

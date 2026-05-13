@@ -5,27 +5,37 @@ use std::marker::{PhantomData, PhantomPinned};
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::sync::Mutex;
+#[cfg(feature = "jit-compile")]
 use std::sync::atomic::AtomicU32;
+#[cfg(feature = "jit-compile")]
 use inkwell::builder::Builder;
+#[cfg(feature = "jit-compile")]
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
+#[cfg(feature = "jit-compile")]
 use inkwell::{AddressSpace, OptimizationLevel};
+#[cfg(feature = "jit-compile")]
 use inkwell::types::{FunctionType, IntType};
+#[cfg(feature = "jit-compile")]
 use inkwell::values::FunctionValue;
 use placenew::place_boxed;
 use crate::eval::bc::PseudoBuilder;
 use crate::eval::integer::bc::IOp;
+#[cfg(feature = "jit-compile")]
 use crate::eval::integer::RawJitIntExpr;
 
 
 /// The central evaluation context for integer expressions.
 ///
-/// Owns the variable/function tables, the bytecode compiler, and the LLVM JIT
-/// engine. Thread-safe: multiple compiled expressions may be held and evaluated
-/// concurrently, each locking the shared state only during execution.
+/// Owns the variable/function tables, the bytecode compiler, and (when the
+/// `jit-compile` feature is enabled) the LLVM JIT engine. Thread-safe: multiple
+/// compiled expressions may be held and evaluated concurrently, each locking the
+/// shared state only during execution.
 pub struct IntEvalContext {
     pub(crate) state: Pin<Box<Mutex<IntEvalContextState>>>,
+    #[cfg(feature = "jit-compile")]
     pub(crate) jit_comp: IntJit,
     pub(crate) bc_builder: Mutex<PseudoBuilder>,
+    #[cfg(feature = "jit-compile")]
     pub(crate) jit_func_count: AtomicU32,
 }
 
@@ -87,10 +97,11 @@ impl IntEvalContextBuilder {
 
     /// Consumes the builder and produces a ready-to-use [`IntEvalContext`].
     ///
-    /// Initialises the LLVM JIT engine (including the `ipow` global mapping)
-    /// and pins the shared state so compiled expressions can safely hold pointers to it.
+    /// Pins the shared state so compiled expressions can safely hold pointers to it.
+    /// When the `jit-compile` feature is enabled, also initialises the LLVM JIT
+    /// engine (including the `ipow` global mapping).
     pub fn build(&mut self) -> IntEvalContext {
-        //prepare the jit context
+        #[cfg(feature = "jit-compile")]
         let context = Box::new(inkwell::context::Context::create());
 
         IntEvalContext{
@@ -104,7 +115,9 @@ impl IntEvalContextBuilder {
                     __pin: PhantomPinned
                 }
             )),
+            #[cfg(feature = "jit-compile")]
             jit_func_count: AtomicU32::default(),
+            #[cfg(feature = "jit-compile")]
             jit_comp: IntJit::new(
                 context,
                 |ctx| {
@@ -246,6 +259,7 @@ pub struct IntVM {
 /// Owns the inkwell `Context`, `ExecutionEngine`, and `Builder`, together with
 /// pre-computed LLVM types and function-type signatures for the runtime
 /// callbacks used by JIT-compiled expressions.
+#[cfg(feature = "jit-compile")]
 #[ouroboros::self_referencing]
 pub struct IntJit {
     pub(crate) context: Box<inkwell::context::Context>,
@@ -352,6 +366,7 @@ impl IntExpr for Vec<IOp> {
 /// Holds a native function pointer produced by LLVM. Evaluation invokes the
 /// compiled code directly, passing runtime callbacks for variable loads and
 /// function calls via the context's shared state.
+#[cfg(feature = "jit-compile")]
 pub struct JitIntExpression<'ctx> {
     //SAFETY: the pointer is pointing to a pinned memory address
     //and the expression is bounded by the 'ctx lifetime,
@@ -360,6 +375,7 @@ pub struct JitIntExpression<'ctx> {
     pub(crate) jit: JitFunction<'ctx, RawJitIntExpr>,
 }
 
+#[cfg(feature = "jit-compile")]
 impl<'ctx> IntExpr for JitFunction<'ctx, RawJitIntExpr> {
     fn eval(&self, ctx: &mut IntEvalContextState) -> i64 {
         unsafe{
